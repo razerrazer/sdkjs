@@ -4301,6 +4301,7 @@ FormatParser.prototype =
             var aDate = [];
             var nMonthIndex = null;
 			var sMonthFormat = null;
+            var sDateDelimiter = null;
             var aTime = [];
             var am = false;
             var pm = false;
@@ -4330,6 +4331,8 @@ FormatParser.prototype =
                 }
                 else if (oDataTypes.digit == elem.type)
                     bError = true;//case "1-2-3 10"
+                else if (oDataTypes.delimiter == elem.type && null == sDateDelimiter && i > 0 && match[i - 1].date)
+                    sDateDelimiter = elem.val;
             }
             var nDateLength = aDate.length;
             if (nDateLength > 0 && !(2 <= nDateLength && nDateLength <= 3 && (null == nMonthIndex || (3 == nDateLength && 1 == nMonthIndex) || 2 == nDateLength || (3 == nDateLength && 0 == nMonthIndex))))
@@ -4340,6 +4343,9 @@ FormatParser.prototype =
             if(!bError){
                 res = { d: null, m: null, y: null, h: null, min: null, s: null, am: am, pm: pm, sDateFormat: null };
                 if (nDateLength > 0) {
+                    // razer: in Swedish (sv-SE, short date yyyy-mm-dd) "5/11" and "5/11/2026" are written
+                    // day/month(/year), so with "/" read the day first; "-" keeps the ISO order (month-day)
+                    var bDayFirstSv = 1053 === cultureInfo.LCID && "/" === sDateDelimiter;
                     var nIndexD = Math.max(cultureInfo.ShortDatePattern.indexOf("0"), cultureInfo.ShortDatePattern.indexOf("1"));
                     var nIndexM = Math.max(cultureInfo.ShortDatePattern.indexOf("2"), cultureInfo.ShortDatePattern.indexOf("3"));
                     var nIndexY = Math.max(cultureInfo.ShortDatePattern.indexOf("4"), cultureInfo.ShortDatePattern.indexOf("5"));
@@ -4388,7 +4394,7 @@ FormatParser.prototype =
                         //check the order in default format
                         if (2 == nDateLength) {
                             //d and m have priority
-                            if (nIndexD < nIndexM) {
+                            if (nIndexD < nIndexM || bDayFirstSv) {
                                 res.d = aDate[0];
                                 res.m = aDate[1];
                             }
@@ -4423,6 +4429,11 @@ FormatParser.prototype =
                             res.y = aDate[0];
                             res.m = aDate[1];
                             res.d = aDate[2];
+                            res.sDateFormat = getShortDateFormat(cultureInfo);
+                        } else if (3 == nDateLength && bDayFirstSv) {
+                            res.d = aDate[0];
+                            res.m = aDate[1];
+                            res.y = aDate[2];
                             res.sDateFormat = getShortDateFormat(cultureInfo);
                         } else {
                             for (var i = 0, length = cultureInfo.ShortDatePattern.length; i < length; i++)
